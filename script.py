@@ -53,9 +53,19 @@ def create_calendar_events(service, year, month, key, days, start_time, end_time
 # Authentifizieren und Kalender-Service erhalten
 service = authenticate_google_account()
 
+def length_of_month(month, year):
+    days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    
+    # Schaltjahrprüfung und Anpassung für Februar
+    if month == 2 and (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
+        return 29
+    
+    # Rückgabe der Tage des entsprechenden Monats
+    return days_in_month[month - 1]
+
 # Arbeitszeiten Definieren nach Dienstplan
 Jahr = 2024
-Monat = 12
+Monat = 11
 
 kalender_map_okt = { # Oktober 2024
     "ZT": {
@@ -126,10 +136,12 @@ kalender_map_dez = { # Dezember 2024
     },
 }
 
-kalender_map = kalender_map_dez
+kalender_map = kalender_map_nov
 
+Monatsstunden = 38.5/7 * length_of_month(Monat, Jahr)  # Monatsstunden berechnen
 input = input("Events erstellen (e) oder Arbeitszeit berechnen (b)?")
-Tagesstunden = 40/7
+
+print("Monatsstunden: ", Monatsstunden)
 if input == "b":
     # Arbeitszeiten berechnen
     total_hours = 0
@@ -144,8 +156,8 @@ if input == "b":
             total_shift_hours += diff.total_seconds() / 3600
         print(f"Arbeitszeit für {key}: {total_shift_hours} Stunden")
         total_hours += total_shift_hours
-    print(f"Gesamte Arbeitszeit: {total_hours} Stunden. Sollwert: ", round(Tagesstunden*31))
-    print(f"Überstunden: {round(total_hours - Tagesstunden*31)} Stunden")
+    print(f"Gesamte Arbeitszeit: {total_hours} Stunden. Sollwert: ", round(Monatsstunden), " Stunden")
+    print(f"Überstunden: {round(total_hours - Monatsstunden)} Stunden")
 if input == "e":
     # Events erstellen
     for key, data in kalender_map.items():
