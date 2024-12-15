@@ -49,23 +49,16 @@ def create_calendar_events(service, year, month, key, days, start_time, end_time
         service.events().insert(calendarId='primary', body=event).execute()
         print(f"Event für {key} am {event_start.strftime('%d.%m.%Y')} von {event_start.strftime('%H:%M')} bis {event_end.strftime('%H:%M')} wurde erstellt.")
 
-
-# Authentifizieren und Kalender-Service erhalten
-service = authenticate_google_account()
-
+# Hilfsfunktion zur Berechnung der Länge eines Monats
 def length_of_month(month, year):
     days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    
-    # Schaltjahrprüfung und Anpassung für Februar
     if month == 2 and (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
         return 29
-    
-    # Rückgabe der Tage des entsprechenden Monats
     return days_in_month[month - 1]
 
 # Arbeitszeiten Definieren nach Dienstplan
 Jahr = 2024
-Monat = 11
+Monat = 10
 
 kalender_map_okt = { # Oktober 2024
     "ZT": {
@@ -136,29 +129,41 @@ kalender_map_dez = { # Dezember 2024
     },
 }
 
-kalender_map = kalender_map_nov
 
-Monatsstunden = 38.5/7 * length_of_month(Monat, Jahr)  # Monatsstunden berechnen
-input = input("Events erstellen (e) oder Arbeitszeit berechnen (b)?")
+kalender_map = kalender_map_okt
+
+# Monatsstunden berechnen
+Monatsstunden = 38.5 / 7 * length_of_month(Monat, Jahr)
+input_option = input("Events erstellen (e) oder Arbeitszeit berechnen (b)?")
 
 print("Monatsstunden: ", Monatsstunden)
-if input == "b":
+if input_option == "b":
     # Arbeitszeiten berechnen
     total_hours = 0
+    weekly_hours = {}
     for key, data in kalender_map.items():
-        total_shift_hours = 0
         for day in data['days']:
             start_time = datetime.datetime(Jahr, Monat, day, data['start_time'][0], data['start_time'][1])
             end_time = datetime.datetime(Jahr, Monat, day, data['end_time'][0], data['end_time'][1])
             diff = end_time - start_time
             if key == "ZT":
                 diff -= datetime.timedelta(hours=0.5)  # Pause abziehen
-            total_shift_hours += diff.total_seconds() / 3600
-        print(f"Arbeitszeit für {key}: {total_shift_hours} Stunden")
-        total_hours += total_shift_hours
-    print(f"Gesamte Arbeitszeit: {total_hours} Stunden. Sollwert: ", round(Monatsstunden), " Stunden")
-    print(f"Überstunden: {round(total_hours - Monatsstunden)} Stunden")
-if input == "e":
+            shift_hours = diff.total_seconds() / 3600
+            
+            # Woche berechnen
+            week_start = start_time - datetime.timedelta(days=start_time.weekday())
+            week_start_date = week_start.date()
+            weekly_hours[week_start_date] = weekly_hours.get(week_start_date, 0) + shift_hours
+            
+            total_hours += shift_hours
+
+    print(f"Gesamte Arbeitszeit: {total_hours} Stunden. Sollwert: {round(Monatsstunden)} Stunden")
+    #print(f"Überstunden: {round(total_hours - Monatsstunden)} Stunden")
+    print("\nArbeitszeit pro Woche:")
+    for week, hours in sorted(weekly_hours.items()):
+        print(f"Kalenderwoche ab {week}: {hours:.2f} Stunden")
+elif input_option == "e":
     # Events erstellen
+    service = authenticate_google_account()
     for key, data in kalender_map.items():
         create_calendar_events(service, Jahr, Monat, key, data['days'], data['start_time'], data['end_time'])
